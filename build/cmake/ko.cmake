@@ -18,6 +18,7 @@ endfunction()
 function(add_module obj)
     compile_module(${obj})
     aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} ${obj}_SRC)
+    # 只是为了clion提示
     add_executable(${obj}_exe ${${obj}_SRC})
     target_compile_definitions(${obj}_exe PRIVATE -DKBUILD_MODNAME=${obj})
 endfunction()
