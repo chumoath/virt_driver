@@ -20,5 +20,8 @@ function(add_module obj)
     aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} ${obj}_SRC)
     # 只是为了clion提示
     add_executable(${obj}_exe ${${obj}_SRC})
-    target_compile_definitions(${obj}_exe PRIVATE -DKBUILD_MODNAME=${obj})
+    # 只是为了去除clion的错误提示, 内核编译时会传递宏
+    target_compile_definitions(${obj}_exe PRIVATE -DKBUILD_MODNAME=\"modname_${obj}\")
+    target_compile_definitions(${obj}_exe PRIVATE -DKBUILD_MODFILE=\"modfile_${obj}\")
+    target_compile_definitions(${obj}_exe PRIVATE -DKBUILD_BASENAME=\"basename_${obj}\")
 endfunction()
