@@ -1,0 +1,13 @@
+SET(CMAKE_SYSTEM_NAME Linux)
+SET(CMAKE_SYSTEM_PROCESSOR arm)
+# 只是为了clion通过gcc编译可执行程序检查;内核不依赖glibc(Scrt1.o)
+SET(CMAKE_C_COMPILER arm-linux-gnueabi-gcc)
+SET(CMAKE_CXX_COMPILER arm-linux-gnueabi-g++)
+
+SET(ARCH arm)
+SET(CROSS_COMPILE arm-openbmc-linux-gnueabi-)
+SET(KERNEL_DIR /home/gxh/new_openbmc/openbmc/build/evb-ast2600/tmp/work-shared/evb-ast2600/kernel-source)
+SET(KERNEL_BUILD_DIR /home/gxh/new_openbmc/openbmc/build/evb-ast2600/tmp/work/evb_ast2600-openbmc-linux-gnueabi/linux-aspeed/6.6.54+git/linux-evb_ast2600-standard-build)
+SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
