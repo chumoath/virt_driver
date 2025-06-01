@@ -30,7 +30,7 @@ add_compile_options(-include ${KERNEL_DIR}/include/linux/compiler_types.h)
 add_definitions(-D__KERNEL__)
 add_definitions(-D__LINUX_ARM_ARCH__=7)
 
-set (ko_targets virt_temp)
+set (ko_targets virt_temp virt_fan)
 
 add_subdirectory(infected)
 
