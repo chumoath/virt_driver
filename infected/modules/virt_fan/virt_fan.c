@@ -229,6 +229,7 @@ static int fan_init(struct fan_data *data)
  * echo virt_temp 0x49 > /sys/bus/i2c/devices/i2c-9/new_device
  * cat /sys/module/virt_fan_drv/parameters/num_fans
  * echo 3 > /sys/module/virt_fan_drv/parameters/num_fans
+ * rm -f /var/configuration/system.json && systemctl restart xyz.openbmc_project.EntityManager.service
 */
 
 //static int fan_probe(struct i2c_client *client, const struct i2c_device_id *id)
