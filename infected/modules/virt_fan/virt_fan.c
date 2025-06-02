@@ -63,7 +63,7 @@ static ssize_t show_fan(struct device *dev, struct device_attribute *devattr, ch
         printk ("%s: get fan rpm%d failed\n", __func__, nr);
         return ret;
     }
-    printk ("%s: get fan_rpm%d = %d\n", __func__, nr, fan_rpm);
+//    printk ("%s: get fan_rpm%d = %d\n", __func__, nr, fan_rpm);
 
     return sprintf(buf, "%d\n", fan_rpm);
 }
@@ -81,7 +81,7 @@ static ssize_t show_pwm(struct device *dev, struct device_attribute *devattr, ch
         printk ("%s: get fan pwm%d failed\n", __func__, nr);
         return ret;
     }
-    printk ("%s: get fan_pwm%d = %d\n", __func__, nr, fan_pwm);
+//    printk ("%s: get fan_pwm%d = %d\n", __func__, nr, fan_pwm);
 
     return sprintf(buf, "%d\n", fan_pwm);
 }
@@ -103,7 +103,7 @@ static ssize_t set_pwm(struct device *dev, struct device_attribute *devattr, con
     data->pwm[nr-1] = (u8)val;
     mutex_unlock(&data->pwm_buf_lock);
 
-    printk ("%s: set fan_pwm%d = %d\n", __func__, nr, (u8)val);
+//    printk ("%s: set fan_pwm%d = %d\n", __func__, nr, (u8)val);
     return count;
 }
 
@@ -223,10 +223,12 @@ static int fan_init(struct fan_data *data)
 
 /*
  * Usage:
- * insmod virt_fan_drv.ko num_fans=6
- * echo virt_fan 0x30 > /sys/bus/i2c/devices/i2c-1/new_device
+ * insmod virt_fan_drv.ko num_fans=3
+ * insmod virt_temp_drv.ko
+ * echo virt_fan 0x30 > /sys/bus/i2c/devices/i2c-3/new_device
+ * echo virt_temp 0x49 > /sys/bus/i2c/devices/i2c-9/new_device
  * cat /sys/module/virt_fan_drv/parameters/num_fans
- * echo 6 > /sys/module/virt_fan_drv/parameters/num_fans
+ * echo 3 > /sys/module/virt_fan_drv/parameters/num_fans
 */
 
 //static int fan_probe(struct i2c_client *client, const struct i2c_device_id *id)
