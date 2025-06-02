@@ -5,7 +5,7 @@
 #include <linux/delay.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/hwmon.h>
-#include <Linux/slab.h>
+#include <linux/slab.h>
 #include "virt_fan.h"
 
 static int num_fans = 0;
@@ -46,6 +46,8 @@ int fan_write(struct fan_data *data, u32 command, int nr, const char *wbuf, int 
     }
 
     mutex_unlock(&data->mcu_lock);
+
+    return ret;
 }
 
 static ssize_t show_fan(struct device *dev, struct device_attribute *devattr, char *buf)
@@ -228,7 +230,10 @@ static int fan_probe(struct i2c_client *client)
     struct sensor_device_attribute *a;
     int i;
 
-    if (num_fans <= 0 || num_fans > FAN_MAX_NUM) return -EINVAL;
+    if (num_fans <= 0 || num_fans > FAN_MAX_NUM) {
+        printk ("%s: num_fans is invalid\n", __func__);
+        return -EINVAL;
+    }
 
     // no need to free manually
     data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
@@ -275,7 +280,7 @@ static void fan_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id virt_fan_id[] = {
-    { " virt_fan", 0 },
+    { "virt_fan", 0 },
     {}
 };
 

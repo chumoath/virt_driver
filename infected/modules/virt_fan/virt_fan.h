@@ -1,5 +1,6 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
+#include <linux/delay.h>
 
 #define FAN_FAIL_MAX_RETRY 50
 
@@ -42,5 +43,5 @@ struct fan_data {
     struct attribute **attrs;
 };
 
-int _fan_read(struct fan_data *data, u32 command, int nr, char *rbuf, int rlen);
-int _fan_write(struct fan_data *data, u32 command, int nr, const char *wbuf, int wlen);
+int _fan_read(struct fan_data *data, u32 command, int nr, u8 *rbuf, int rlen);
+int _fan_write(struct fan_data *data, u32 command, int nr, const u8 *wbuf, int wlen);
