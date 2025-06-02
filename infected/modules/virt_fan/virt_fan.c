@@ -12,7 +12,7 @@ static int num_fans = 0;
 module_param(num_fans, int, 0644);
 MODULE_PARM_DESC(num_fans, "Number of fans to create");
 
-int fan_read(struct fan_data *data, u32 command, int nr, char *rbuf, int rlen)
+int fan_read(struct fan_data *data, u32 command, int nr, u8 *rbuf, int rlen)
 {
     int i;
     int ret;
@@ -31,7 +31,7 @@ int fan_read(struct fan_data *data, u32 command, int nr, char *rbuf, int rlen)
     return ret;
 }
 
-int fan_write(struct fan_data *data, u32 command, int nr, const char *wbuf, int wlen)
+int fan_write(struct fan_data *data, u32 command, int nr, const u8 *wbuf, int wlen)
 {
     int i;
     int ret;
@@ -58,7 +58,7 @@ static ssize_t show_fan(struct device *dev, struct device_attribute *devattr, ch
     u16 fan_rpm;
     int ret;
 
-    ret = fan_read(data, FAN_CMD_GET_RPM, nr, (char *)&fan_rpm, sizeof(fan_rpm));
+    ret = fan_read(data, FAN_CMD_GET_RPM, nr, (u8 *)&fan_rpm, sizeof(fan_rpm));
     if ( ret < 0 ) {
         printk ("%s: get fan rpm%d failed\n", __func__, nr);
         return ret;
@@ -76,7 +76,7 @@ static ssize_t show_pwm(struct device *dev, struct device_attribute *devattr, ch
     u8 fan_pwm;
     int ret;
 
-    ret = fan_read(data, FAN_CMD_GET_PWM, nr, (char *)&fan_pwm, sizeof(fan_pwm));
+    ret = fan_read(data, FAN_CMD_GET_PWM, nr, &fan_pwm, sizeof(fan_pwm));
     if ( ret < 0 ) {
         printk ("%s: get fan pwm%d failed\n", __func__, nr);
         return ret;
@@ -153,7 +153,7 @@ static void update_pwm(struct fan_data *data, int nr, u8 val)
     int ret;
 
     val = clamp_val(val, 0, 255);
-    ret = fan_write(data, FAN_CMD_SET_PWM, nr, (char *)&val, sizeof(val));
+    ret = fan_write(data, FAN_CMD_SET_PWM, nr, &val, sizeof(val));
     if (ret < 0) {
         printk ("%s: update fan pwm%d failed\n", __func__, nr);
     }
@@ -220,6 +220,14 @@ static int fan_init(struct fan_data *data)
         a->index = _index; \
         data->attrs[_slot] = &a->dev_attr.attr; \
     } while (0)
+
+/*
+ * Usage:
+ * insmod virt_fan_drv.ko num_fans=6
+ * echo virt_fan 0x30 > /sys/bus/i2c/devices/i2c-1/new_device
+ * cat /sys/module/virt_fan_drv/parameters/num_fans
+ * echo 6 > /sys/module/virt_fan_drv/parameters/num_fans
+*/
 
 //static int fan_probe(struct i2c_client *client, const struct i2c_device_id *id)
 static int fan_probe(struct i2c_client *client)
