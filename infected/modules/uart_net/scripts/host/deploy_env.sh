@@ -10,6 +10,10 @@ bin_path=$uartnet_path/bin/
 rm -rf $bin_path
 tar -xf $script_path/bin.tar.gz -C $uartnet_path
 
+cd $bin_path
+git checkout uart_ethernet.ko
+cd -
+
 tar -xf $bin_path/core-image-full-cmdline-qemuarm64.rootfs.ext4.tar.gz -C $bin_path
 
 # vm1.ext4
