@@ -213,7 +213,7 @@ static netdev_tx_t uartnet_start_xmit(struct sk_buff *skb, struct net_device *de
         // 队列已满，丢弃数据包（实际应入队，但简单处理）
         dev_kfree_skb(skb);
         dev->stats.tx_dropped++;
-        printk ("drop");
+        UART_NET_DEBUG ("drop");
         netif_wake_queue(dev); // 恢复队列
     }
     
@@ -387,11 +387,11 @@ static irqreturn_t uartnet_interrupt(int irq, void *dev_id)
     }
 
     if (priv->tx_intr % 100 == 0) {
-        // printk ("tx_intr = %d", priv->tx_intr);
+        // UART_NET_DEBUG ("tx_intr = %d", priv->tx_intr);
     }
 
     if (priv->rx_intr % 100 == 0) {
-        // printk ("rx_intr = %d", priv->rx_intr);
+        // UART_NET_DEBUG ("rx_intr = %d", priv->rx_intr);
     }
     
     return IRQ_HANDLED;
@@ -490,7 +490,9 @@ static int uartnet_probe(struct platform_device *pdev)
     int err;
     
     /* 使用devm分配网络设备 */
-    dev = devm_alloc_etherdev_mqs(&pdev->dev, sizeof(struct uartnet_priv), 1, 1);
+    // dev = devm_alloc_etherdev_mqs(&pdev->dev, sizeof(struct uartnet_priv), 1, 1);
+    // dev = alloc_netdev_mqs(&pdev->dev, sizeof(struct uartnet_priv), 1, 1);
+    dev = alloc_netdev(0, "uartnet%d", NET_NAME_ENUM, ether_setup);
     if (!dev)
         return -ENOMEM;
     
@@ -515,19 +517,22 @@ static int uartnet_probe(struct platform_device *pdev)
     res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
     if (!res) {
         dev_err(&pdev->dev, "No memory resource\n");
-        return -ENODEV;
+        err = -ENODEV;
+        goto error;
     }
     
     priv->uart_base = devm_ioremap_resource(&pdev->dev, res);
     if (IS_ERR(priv->uart_base)) {
         dev_err(&pdev->dev, "Failed to ioremap UART\n");
-        return PTR_ERR(priv->uart_base);
+        err = PTR_ERR(priv->uart_base);
+        goto error;
     }
-    
+
     dev->irq = platform_get_irq(pdev, 0);
     if (dev->irq < 0) {
         dev_err(&pdev->dev, "Failed to get IRQ\n");
-        return priv->irq;
+        err = priv->irq;
+        goto error;
     }
     
     /* 配置UART */
@@ -561,9 +566,11 @@ static int uartnet_probe(struct platform_device *pdev)
     dev_info(&pdev->dev, "UART network device %s registered, IRQ %d, base %p\n",
              dev->name, priv->irq, priv->uart_base);
     return 0;
-    
+
 cleanup_napi:
     netif_napi_del(&priv->napi);
+error:
+    free_netdev(dev);
     return err;
 }
 
@@ -575,7 +582,7 @@ static int uartnet_remove(struct platform_device *pdev)
     
     unregister_netdev(dev);
     netif_napi_del(&priv->napi);
-    
+    free_netdev(dev);
     return 0;
 }
 

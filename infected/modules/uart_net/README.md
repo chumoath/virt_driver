@@ -6,7 +6,7 @@ ping 192.168.3.1 -c 1
 /busybox telnetd
 /busybox httpd
 
-ip link set dev eth1 down
+ip link set dev uartnet0 down
 ```
 
 # qemu
