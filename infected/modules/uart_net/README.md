@@ -37,6 +37,9 @@ vm2
 -serial unix:/tmp/vm-socket
 
 diff --color -r qemu-6.2.0 qemu-6.2.0.new
+
+
+ssh root@192.168.0.2
 ```
 
 # linux-5.10.240
@@ -81,8 +84,6 @@ make -j$(nproc)
 ```
 
 # ip
-vm1 192.168.33.0/24
-vm2 192.168.0.0/24
-uart 192.168.3.0/24
-
-ssh root@192.168.0.2
+- vm1 192.168.33.0/24
+- vm2 192.168.0.0/24
+- uart 192.168.3.0/24
