@@ -8,4 +8,4 @@ bin_path=$uartnet_path/bin/
 ps -ef | grep qemu | grep -v grep | awk '{print $2}' | xargs kill -9
 sleep 1
 rm -f /tmp/vm-socket
-rm -rf $bin_path
+cd $uartnet_path && git checkout . && git clean -f -d && cd -
