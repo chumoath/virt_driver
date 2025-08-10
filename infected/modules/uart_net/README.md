@@ -14,6 +14,8 @@ wget 192.168.3.1/home/root/config_vm1.sh
 
 # telnet/ssh问题: 传输太慢导致软件卡死.
 
+netstat -s
+
 ip link set dev uartnet0 down
 ```
 
