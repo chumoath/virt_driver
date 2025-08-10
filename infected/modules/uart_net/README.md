@@ -77,6 +77,11 @@ make scripts_gdb
 make help
 
 cp -fa vmlinux.symvers Module.symvers
+
+
+gdb-multiarch vmlinux
+target remote :1234
+lx-symbols
 ```
 
 # rootfs
