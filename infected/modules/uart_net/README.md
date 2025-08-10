@@ -5,6 +5,7 @@ ping 192.168.3.1 -c 1
 
 /busybox telnetd
 /busybox httpd
+/busybox httpd -h /
 
 ip link set dev uartnet0 down
 ```
