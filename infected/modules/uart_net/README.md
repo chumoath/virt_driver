@@ -102,3 +102,11 @@ make -j$(nproc)
 - vm1 192.168.33.0/24
 - vm2 192.168.0.0/24
 - uart 192.168.3.0/24
+
+# packet
+- MIN_ETH: 68B
+
+- mac:   14B
+- ip:    20B
+- tcp:   32B
+- total: 66B
