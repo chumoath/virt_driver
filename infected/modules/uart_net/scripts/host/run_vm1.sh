@@ -19,7 +19,7 @@ cd $bin_path
     -nographic \
     -m 1024M \
     -cpu cortex-a72 \
-    -smp 8 \
+    -smp 1 \
     -kernel $bin_path/Image \
     -dtb $bin_path/arm64.dtb \
     -drive format=raw,file=$bin_path/vm1.ext4 \

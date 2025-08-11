@@ -171,6 +171,7 @@ static void uartnet_tx_task(struct work_struct *work)
             dev_kfree_skb(priv->tx_skb);
             priv->tx_skb = NULL;
             priv->tx_state = TX_STATE_IDLE;
+            netif_wake_queue(priv->netdev);
             goto unlock; // 发送完成，退出循环
         }
     }
@@ -179,7 +180,6 @@ unlock:
     // 如果没有更多数据发送，禁用TX中断
     if (priv->tx_state == TX_STATE_IDLE) {
         writel(readl(priv->uart_base + UART011_IMSC) & ~UART011_TXIM, priv->uart_base + UART011_IMSC);
-        netif_wake_queue(priv->netdev);
     }
     
     spin_unlock_irqrestore(&priv->tx_lock, flags);
@@ -389,6 +389,8 @@ static irqreturn_t uartnet_interrupt(int irq, void *dev_id)
         //     __napi_schedule(&priv->napi);
         // }
         napi_schedule(&priv->napi);
+
+        status = status & ~(UART011_RTIS | UART011_RXIS);
     }
     
     /* 处理TX中断 */
@@ -398,7 +400,15 @@ static irqreturn_t uartnet_interrupt(int irq, void *dev_id)
         // UART_NET_DEBUG("uartnet_interrupt tx");
         // uartnet_tx_interrupt(dev);
         // schedule_work(&priv->tx_work);
-        queue_work(priv->tx_workqueue, &priv->tx_work);
+        if (priv->tx_state != TX_STATE_IDLE) {
+            queue_work(priv->tx_workqueue, &priv->tx_work);
+        }
+        status = status & ~UART011_TXIS;
+    }
+
+    if (status) {
+        writel(status, priv->uart_base + UART011_ICR);
+        UART_NET_DEBUG("uartnet_interrupt other");
     }
 
     if (priv->tx_intr % 100 == 0) {
@@ -486,6 +496,7 @@ static int uartnet_stop(struct net_device *dev)
     spin_unlock_irqrestore(&priv->tx_lock, flags);
     
     cancel_work_sync(&priv->tx_work);
+    flush_workqueue(priv->tx_workqueue);
     return 0;
 }
 

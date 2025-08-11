@@ -13,7 +13,7 @@ cd $bin_path
     -nographic \
     -m 1024M \
     -cpu cortex-a72 \
-    -smp 8 \
+    -smp 1 \
     -kernel $bin_path/Image \
     -dtb $bin_path/arm64.dtb \
     -drive format=raw,file=$bin_path/vm2.ext4 \
@@ -21,7 +21,8 @@ cd $bin_path
     -net nic,netdev=tap1,model=virtio -netdev tap,id=tap1,ifname=tap1,script=no,downscript=no \
     -serial telnet::55556,server,nowait,nodelay \
     -serial unix:/tmp/vm-socket \
-    -monitor none &
+    -monitor none \
+    -gdb tcp::1235 &
 cd -
 
 sleep 3
