@@ -14,7 +14,7 @@
 #include <linux/amba/serial.h>
 
 #define DRV_NAME "uartnet"
-#define UARTNET_MTU 512
+#define UARTNET_MTU 256
 #define FRAME_HEADER 0xAA
 #define FRAME_FOOTER 0x55
 #define ESCAPE_CHAR 0x5A
@@ -76,6 +76,7 @@ struct uartnet_priv {
     u32 rx_intr;
 
     struct work_struct tx_work;
+    struct workqueue_struct *tx_workqueue;
 };
 
 static const struct of_device_id pl011_ids[] = {
@@ -218,7 +219,8 @@ static netdev_tx_t uartnet_start_xmit(struct sk_buff *skb, struct net_device *de
         // UART_NET_DEBUG("uartnet_start_xmit");
         // 手动触发发送中断处理
         // uartnet_tx_interrupt(dev);
-        schedule_work(&priv->tx_work);
+        // schedule_work(&priv->tx_work);
+        queue_work(priv->tx_workqueue, &priv->tx_work);
     } else {
         // 队列已满，丢弃数据包（实际应入队，但简单处理）
         dev_kfree_skb(skb);
@@ -395,7 +397,8 @@ static irqreturn_t uartnet_interrupt(int irq, void *dev_id)
         writel(UART011_TXIS, priv->uart_base + UART011_ICR);
         // UART_NET_DEBUG("uartnet_interrupt tx");
         // uartnet_tx_interrupt(dev);
-        schedule_work(&priv->tx_work);
+        // schedule_work(&priv->tx_work);
+        queue_work(priv->tx_workqueue, &priv->tx_work);
     }
 
     if (priv->tx_intr % 100 == 0) {
@@ -526,6 +529,7 @@ static int uartnet_probe(struct platform_device *pdev)
     priv->tx_intr = 0;
     priv->rx_intr = 0;
     INIT_WORK(&priv->tx_work, uartnet_tx_task);
+
     /* 获取UART资源 */
     res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
     if (!res) {
@@ -566,7 +570,14 @@ static int uartnet_probe(struct platform_device *pdev)
     
     /* 设置随机MAC地址 */
     eth_hw_addr_random(dev);
-    
+
+    priv->tx_workqueue = create_workqueue("uartnet_tx");
+    if (!priv->tx_workqueue) {
+		dev_warn(&pdev->dev, "Can't create wq uartnet_tx\n");
+		err = -ENOMEM;
+		goto error;
+	}
+
     /* 注册网络设备 */
     err = register_netdev(dev);
     if (err) {
@@ -582,6 +593,7 @@ static int uartnet_probe(struct platform_device *pdev)
 
 cleanup_napi:
     netif_napi_del(&priv->napi);
+    destroy_workqueue(priv->tx_workqueue);
 error:
     free_netdev(dev);
     return err;
@@ -592,9 +604,9 @@ static int uartnet_remove(struct platform_device *pdev)
 {
     struct net_device *dev = platform_get_drvdata(pdev);
     struct uartnet_priv *priv = netdev_priv(dev);
-    
     unregister_netdev(dev);
     netif_napi_del(&priv->napi);
+    destroy_workqueue(priv->tx_workqueue);
     free_netdev(dev);
     return 0;
 }
