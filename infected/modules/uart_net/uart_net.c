@@ -170,7 +170,6 @@ static void uartnet_tx_task(struct work_struct *work)
             dev_kfree_skb(priv->tx_skb);
             priv->tx_skb = NULL;
             priv->tx_state = TX_STATE_IDLE;
-            netif_wake_queue(priv->netdev);
             goto unlock; // 发送完成，退出循环
         }
     }
@@ -179,6 +178,7 @@ unlock:
     // 如果没有更多数据发送，禁用TX中断
     if (priv->tx_state == TX_STATE_IDLE) {
         writel(readl(priv->uart_base + UART011_IMSC) & ~UART011_TXIM, priv->uart_base + UART011_IMSC);
+        netif_wake_queue(priv->netdev);
     }
     
     spin_unlock_irqrestore(&priv->tx_lock, flags);
@@ -329,8 +329,8 @@ static int uartnet_poll(struct napi_struct *napi, int budget)
                     if (priv->rx_skb && priv->rx_skb->len == priv->rx_frame_length) {
                         UART_NET_DEBUG ("uartnet_poll: skb->len = %d", priv->rx_skb->len);
                         priv->rx_skb->protocol = eth_type_trans(priv->rx_skb, dev);
-                        napi_gro_receive(napi, priv->rx_skb);
-                        // netif_receive_skb(priv->rx_skb);
+                        // napi_gro_receive(napi, priv->rx_skb);
+                        netif_receive_skb(priv->rx_skb);
                         dev->stats.rx_packets++;
                         dev->stats.rx_bytes += priv->rx_skb->len;
                         work_done++;

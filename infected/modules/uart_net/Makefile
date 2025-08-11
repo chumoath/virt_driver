@@ -5,7 +5,7 @@ ifneq ($(KERNELRELEASE),)
 else
 	PWD := $(shell pwd)
 all:
-	make -C /root/linux-5.10.240 M=${PWD} modules 
+	make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -C /root/linux-5.10.240 M=${PWD} modules 
 clean:
-	make -C /root/linux-5.10.240 M=${PWD} clean
+	make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -C /root/linux-5.10.240 M=${PWD} clean
 endif
