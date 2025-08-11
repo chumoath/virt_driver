@@ -1,3 +1,6 @@
+#include "linux/if_ether.h"
+#include "linux/kernel.h"
+#include "linux/workqueue.h"
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
@@ -71,6 +74,8 @@ struct uartnet_priv {
 
     u32 tx_intr;
     u32 rx_intr;
+
+    struct work_struct tx_work;
 };
 
 static const struct of_device_id pl011_ids[] = {
@@ -80,9 +85,11 @@ static const struct of_device_id pl011_ids[] = {
 MODULE_DEVICE_TABLE(of, pl011_ids);
 
 /* 处理发送中断 */
-static void uartnet_tx_interrupt(struct net_device *dev)
+// static void uartnet_tx_interrupt(struct net_device *dev)
+static void uartnet_tx_task(struct work_struct *work)
 {
-    struct uartnet_priv *priv = netdev_priv(dev);
+    // struct uartnet_priv *priv = netdev_priv(dev);
+    struct uartnet_priv *priv = container_of(work, struct uartnet_priv, tx_work);
     unsigned long flags;
     u32 fr;
 
@@ -95,7 +102,7 @@ static void uartnet_tx_interrupt(struct net_device *dev)
         if ((fr & UART01x_FR_TXFF) || priv->tx_state == TX_STATE_IDLE)
             break;
         
-        // UART_NET_DEBUG("uartnet_tx_interrupt");
+        // UART_NET_DEBUG("uartnet_tx_task");
         switch (priv->tx_state) {
         case TX_STATE_HEADER:
             writel(FRAME_HEADER, priv->uart_base + UART01x_DR);
@@ -158,12 +165,12 @@ static void uartnet_tx_interrupt(struct net_device *dev)
 
         case TX_STATE_FOOTER:
             writel(FRAME_FOOTER, priv->uart_base + UART01x_DR);
-            dev->stats.tx_packets++;
-            dev->stats.tx_bytes += priv->tx_skb->len;
+            priv->netdev->stats.tx_packets++;
+            priv->netdev->stats.tx_bytes += priv->tx_skb->len;
             dev_kfree_skb(priv->tx_skb);
             priv->tx_skb = NULL;
             priv->tx_state = TX_STATE_IDLE;
-            netif_wake_queue(dev);
+            netif_wake_queue(priv->netdev);
             goto unlock; // 发送完成，退出循环
         }
     }
@@ -192,6 +199,8 @@ static netdev_tx_t uartnet_start_xmit(struct sk_buff *skb, struct net_device *de
     }
     netif_stop_queue(dev);
     
+    UART_NET_DEBUG ("uartnet_start_xmit: skb->len = %d", skb->len);
+    
     if (priv->tx_state == TX_STATE_IDLE) {
         // 立即开始发送
         priv->tx_skb = skb;
@@ -206,15 +215,16 @@ static netdev_tx_t uartnet_start_xmit(struct sk_buff *skb, struct net_device *de
         
         // 启用TX中断并触发第一次发送
         writel(readl(priv->uart_base + UART011_IMSC) | UART011_TXIM, priv->uart_base + UART011_IMSC);
-        UART_NET_DEBUG("uartnet_start_xmit");
+        // UART_NET_DEBUG("uartnet_start_xmit");
         // 手动触发发送中断处理
-        uartnet_tx_interrupt(dev);
+        // uartnet_tx_interrupt(dev);
+        schedule_work(&priv->tx_work);
     } else {
         // 队列已满，丢弃数据包（实际应入队，但简单处理）
         dev_kfree_skb(skb);
         dev->stats.tx_dropped++;
-        UART_NET_DEBUG ("drop");
-        netif_wake_queue(dev); // 恢复队列
+        // UART_NET_DEBUG ("drop");
+        // netif_wake_queue(dev); // 恢复队列
     }
     
     spin_unlock_irqrestore(&priv->tx_xmit_lock, flags);
@@ -228,7 +238,7 @@ static int uartnet_poll(struct napi_struct *napi, int budget)
     struct net_device *dev = priv->netdev;
     int work_done = 0;
     u8 data;
-    UART_NET_DEBUG("uartnet_poll");
+    // UART_NET_DEBUG("uartnet_poll");
 
     while (work_done < budget) {
         /* 检查是否有数据 */
@@ -266,8 +276,8 @@ static int uartnet_poll(struct napi_struct *napi, int budget)
                             u16 len = (priv->rx_length_bytes[0] << 8) | 
                                       priv->rx_length_bytes[1];
                             
-                            /* 验证长度 */
-                            if (len > UARTNET_MTU || len == 0) {
+                            /* 验证长度 mtu 为 mac层的 payload */
+                            if (len > UARTNET_MTU + ETH_HLEN || len == 0) {
                                 if (priv->rx_skb) {
                                     dev_kfree_skb(priv->rx_skb);
                                     priv->rx_skb = NULL;
@@ -317,6 +327,7 @@ static int uartnet_poll(struct napi_struct *napi, int budget)
                 if (data == FRAME_FOOTER) {
                     /* 成功接收完整帧 */
                     if (priv->rx_skb && priv->rx_skb->len == priv->rx_frame_length) {
+                        UART_NET_DEBUG ("uartnet_poll: skb->len = %d", priv->rx_skb->len);
                         priv->rx_skb->protocol = eth_type_trans(priv->rx_skb, dev);
                         napi_gro_receive(napi, priv->rx_skb);
                         // netif_receive_skb(priv->rx_skb);
@@ -370,7 +381,7 @@ static irqreturn_t uartnet_interrupt(int irq, void *dev_id)
         
         /* 禁用RX中断，NAPI会重新启用 */
         writel(readl(priv->uart_base + UART011_IMSC) & ~(UART011_RTIM | UART011_RXIM), priv->uart_base + UART011_IMSC);
-        UART_NET_DEBUG("uartnet_interrupt rx");
+        // UART_NET_DEBUG("uartnet_interrupt rx");
         /* 调度NAPI */
         // if (napi_schedule_prep(&priv->napi)) {
         //     __napi_schedule(&priv->napi);
@@ -382,8 +393,9 @@ static irqreturn_t uartnet_interrupt(int irq, void *dev_id)
     if (status & UART011_TXIS) {
         priv->tx_intr++;
         writel(UART011_TXIS, priv->uart_base + UART011_ICR);
-        UART_NET_DEBUG("uartnet_interrupt tx");
-        uartnet_tx_interrupt(dev);
+        // UART_NET_DEBUG("uartnet_interrupt tx");
+        // uartnet_tx_interrupt(dev);
+        schedule_work(&priv->tx_work);
     }
 
     if (priv->tx_intr % 100 == 0) {
@@ -470,6 +482,7 @@ static int uartnet_stop(struct net_device *dev)
     priv->tx_state = TX_STATE_IDLE;
     spin_unlock_irqrestore(&priv->tx_lock, flags);
     
+    cancel_work_sync(&priv->tx_work);
     return 0;
 }
 
@@ -512,7 +525,7 @@ static int uartnet_probe(struct platform_device *pdev)
 
     priv->tx_intr = 0;
     priv->rx_intr = 0;
-
+    INIT_WORK(&priv->tx_work, uartnet_tx_task);
     /* 获取UART资源 */
     res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
     if (!res) {
