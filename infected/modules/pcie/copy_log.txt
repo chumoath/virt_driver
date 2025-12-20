@@ -1,0 +1,154 @@
+-------------------------------------------------------------------------------------
+2G pcieBase全部用物理内存映射，virtual:phy = 1:1
+
+[  103.200989] vma_start = 0xffff235f0000, vma_end = 0xffffa35f0000, vm_pgoff=0x0
+[  309.144835] get vaddr 0xffff235f0000 pte is 0xe8000050000f43
+[  309.145200] get vaddr 0xffff235f1000 pte is 0xe8000050001f43
+[  310.345670] sh (464): drop_caches: 3
+[  310.347517] get vaddr 0xffffa35ef000 pte is 0xe80000cfffff43
+
+log:
+./a.out
+addr = 0xffff235f0000
+total_size = 0x80000000
+copy src to mem ok
+write_n = 0x7ffff000
+
+----------------------------------------------------------------------------------------
+2G + 0x1000 pcieBase全部用物理内存映射，virtual:phy = 1:1
+
+
+[  185.951103] vma_start = 0xffff3396f000, vma_end = 0xffffb3970000, vm_pgoff=0x0
+[  463.764624] get vaddr 0xffff3396f000 pte is 0xe8000050000f43
+[  463.764673] get vaddr 0xffff33970000 pte is 0xe8000050001f43
+[  464.962190] sh (421): drop_caches: 3
+[  464.963706] get vaddr 0xffffb396f000 pte is 0xe80000d0000f43
+
+log:
+addr = 0xffff3396f000
+total_size = 0x80001000
+copy src to mem ok
+write_n = 0x7ffff000
+
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <string.h>
+
+#define PCIE_CMD_GET_PTE  _IO('P', 3)
+
+int main(int argc, char **argv)
+{
+    int fd, src_fd, dst_fd, test_fd, test2_fd;
+    void *addr;
+    char buf[4096];
+    size_t size = (2UL << 30) + 0x1000;
+    size_t read_n, write_n;
+    size_t total_size, total_write_n;
+    char *tmp;
+
+    fd = open("/dev/pcieBase", O_RDWR | O_SYNC);
+    src_fd = open("/root/test.img", O_RDWR);
+    dst_fd = open("/root/test_dst.img", O_RDWR | O_CREAT);
+    addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    printf ("addr = %p\n", addr);
+
+    tmp = addr;
+    total_size = 0;
+
+    while (read_n = read(src_fd, buf, 4096)) {
+        memcpy(tmp, buf, read_n);
+        tmp += read_n;
+        total_size += read_n;
+    }
+
+    int cmd = PCIE_CMD_GET_PTE;
+    ioctl(fd, cmd, addr);
+    ioctl(fd, cmd, addr+4096);
+    printf ("total_size = 0x%lx\n", total_size);
+    printf ("copy src to mem ok\n");
+
+    system("echo 3 > /proc/sys/vm/drop_caches");
+
+    ioctl(fd, cmd, addr + total_size - 0x1000);
+
+    write_n = write(dst_fd, addr, total_size);
+    printf ("write_n = 0x%lx\n", write_n);
+
+    munmap(addr, size);
+    close(fd);
+    close(src_fd);
+    close(dst_fd);
+    return 0;
+}
+
+------------------------------------------------------------------------------------------
+使用mem
+
+
+2G + 0x1000
+dd if=/dev/urandom of=test.img bs=4096 count=524289
+
+
+devmem2 0x50000000
+
+log:
+addr = 0xffff06a6f000
+total_size = 0x80001000
+copy src to mem ok
+write_n = 0x7ffff000
+copy mem to dst ok
+
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    int fd, src_fd, dst_fd;
+    void *addr;
+    char buf[4096];
+    size_t size = 0x80000000 + 4096;
+    size_t read_n, write_n;
+    size_t total_size, total_write_n;
+    char *tmp;
+
+    fd = open("/dev/mem", O_RDWR);
+    src_fd = open("/root/test.img", O_RDWR);
+    dst_fd = open("/root/test_dst.img", O_RDWR | O_CREAT);
+    addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0x50000000);
+    printf ("addr = %p\n", addr);
+
+    tmp = addr;
+    total_size = 0;
+
+    while (read_n = read(src_fd, buf, 4096)) {
+        memcpy(tmp, buf, read_n);
+        tmp += read_n;
+        total_size += read_n;
+    }
+
+    printf ("total_size = 0x%lx\n", total_size);
+    printf ("copy src to mem ok\n");
+
+    system("echo 3 > /proc/sys/vm/drop_caches");
+
+    write_n = write(dst_fd, addr, total_size);
+    printf ("write_n = 0x%lx\n", write_n);
+
+    printf ("copy mem to dst ok\n");
+    munmap(addr, size);
+    close(fd);
+    close(src_fd);
+    close(dst_fd);
+    return 0;
+}
