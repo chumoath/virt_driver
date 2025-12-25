@@ -38,3 +38,6 @@ reserved-memory {
 };
 
 addr2line -e  build.arm64/vmlinux FFFF8000104506F0
+
+# 2G - 4K
+dd if=test.img of=xx bs=4K count=524287
