@@ -36,3 +36,5 @@ reserved-memory {
         no-map;
     };
 };
+
+addr2line -e  build.arm64/vmlinux FFFF8000104506F0
