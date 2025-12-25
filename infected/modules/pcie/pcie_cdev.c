@@ -53,11 +53,8 @@ static struct file_operations pcieBase_fops = {
     .mmap = pcieBase_mmap,
 };
 
-static struct PCIeAdapter g_pcie_adap;
-
-int pciebase_cdev_init(void)
+int pciebase_cdev_init(struct PCIeAdapter *pcie_adap)
 {
-    struct PCIeAdapter *pcie_adap = &g_pcie_adap;
     int ret;
     dev_t dev_id = 0, tmp;
     struct device *dev = NULL;
@@ -99,10 +96,10 @@ _cdev_add_err:
     return ret;
 }
 
-void pciebase_cdev_clean(void)
+void pciebase_cdev_clean(struct PCIeAdapter *pcie_adap)
 {
-    device_destroy(g_pcie_adap.class, MKDEV(g_pcie_adap.major, 0));
-    class_destroy(g_pcie_adap.class);
-    cdev_del(&g_pcie_adap.cdev);
-    unregister_chrdev_region(MKDEV(g_pcie_adap.major, 0), 1);
+    device_destroy(pcie_adap->class, MKDEV(pcie_adap->major, 0));
+    class_destroy(pcie_adap->class);
+    cdev_del(&pcie_adap->cdev);
+    unregister_chrdev_region(MKDEV(pcie_adap->major, 0), 1);
 }

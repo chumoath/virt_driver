@@ -1,25 +1,26 @@
 #include "pcie.h"
 
-static struct block_device *swap_bdev = NULL;
-static char *swap_device_path = "/dev/vdb";
-
-int init_swap_device(void)
+int pciebase_swapdev_init(struct PCIeAdapter *pcie_adap)
 {
-    swap_bdev = lookup_bdev(swap_device_path);
-    if (!swap_bdev) {
-        pr_err("Cannot find block device %s\n", swap_device_path);
+    loff_t total_bytes;
+    pcie_adap->swap_device_path = "/dev/vdb";
+	pcie_adap->swap_bdev = blkdev_get_by_path(pcie_adap->swap_device_path, FMODE_READ | FMODE_WRITE, NULL);
+	if (IS_ERR(pcie_adap->swap_bdev)) {
+		pr_warn("pNFS: failed to open device %s (%ld)\n",
+			pcie_adap->swap_device_path, PTR_ERR(pcie_adap->swap_bdev));
         return -ENODEV;
-    }
+	}
     
-    pr_info("Swap device: %s\n", swap_device_path);
+    total_bytes = i_size_read(pcie_adap->swap_bdev->bd_inode);
+    pr_info("Swap device: %s, sector size: %u, capacity: %lluM\n", pcie_adap->swap_device_path,
+                    bdev_logical_block_size(pcie_adap->swap_bdev), total_bytes >> 20);    
     return 0;
 }
 
-void cleanup_swap_device(void)
+void pciebase_swapdev_clean(struct PCIeAdapter *pcie_adap)
 {
-    if (swap_bdev) {
-        bdput(swap_bdev);
-        swap_bdev = NULL;
+    if (pcie_adap->swap_bdev) {
+        blkdev_put(pcie_adap->swap_bdev, FMODE_READ | FMODE_WRITE);
     }
 }
 
@@ -27,7 +28,7 @@ static int my_swap_writepages(struct pcie_vmem_desc *desc)
 {
 	struct bio *bio;
 	int ret = 0;
-    struct block_device *bdev = swap_bdev;
+    struct block_device *bdev = g_pcie_adap.swap_bdev;
     sector_t sector;
     int i;
     unsigned long pfn = desc->phy_desc->pfn;
@@ -61,7 +62,7 @@ static int my_swap_readpages(struct pcie_vmem_desc *desc)
 {
 	struct bio *bio;
 	int ret = 0;
-    struct block_device *bdev = swap_bdev;
+    struct block_device *bdev = g_pcie_adap.swap_bdev;
     sector_t sector;
     int i;
     unsigned long pfn = desc->phy_desc->pfn;

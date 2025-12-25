@@ -4,12 +4,9 @@
 #include <linux/module.h>
 #include <linux/pgtable.h>
 #include <linux/mm.h>
-#include <linux/swap.h>
 #include <linux/vmalloc.h>
 #include <linux/highmem.h>
 #include <linux/slab.h>
-#include <linux/swapops.h>
-#include <linux/swapfile.h>
 #include <linux/mm_types.h>
 #include <asm/pgalloc.h>
 #include <linux/suspend.h>
@@ -39,6 +36,8 @@ struct PCIeAdapter {
     struct cdev cdev;
     struct class *class;
     dev_t major;
+    struct block_device *swap_bdev;
+    char *swap_device_path;
 };
 
 enum {
@@ -66,16 +65,19 @@ struct pcie_vmem_desc {
     unsigned long id;
 };
 
-int init_swap_device(void);
-void cleanup_swap_device(void);
+extern struct PCIeAdapter g_pcie_adap;
+
+int pciebase_swapdev_init(struct PCIeAdapter *pcie_adap);
+void pciebase_swapdev_clean(struct PCIeAdapter *pcie_adap);
 
 int pcie_init_vmem(void);
 int pcie_init_phymem(void);
 
 int get_vaddr_pte(struct vm_area_struct *vma, unsigned long vaddr);
 vm_fault_t pcieBase_fault(struct vm_fault *vmf);
-int pciebase_cdev_init(void);
-void pciebase_cdev_clean(void);
+
+int pciebase_cdev_init(struct PCIeAdapter *pcie_adap);
+void pciebase_cdev_clean(struct PCIeAdapter *pcie_adap);
 
 int evict_page(struct vm_area_struct *vma, struct pcie_vmem_desc *vmem_desc, struct pcie_vmem_desc *swap_desc);
 int my_swap_pagein(struct vm_area_struct *vma, struct pcie_vmem_desc *vmem_desc);
