@@ -1,14 +1,13 @@
 #include "pcie.h"
 
-static struct pcie_vmem_desc pcie_vmem_descs[VIRTUAL_SIZE/PAGE_SIZE];
-static struct pcie_phymem_desc pcie_phymem_descs[PHY_SIZE/PAGE_SIZE];
+static struct pcie_vmem_desc pcie_vmem_descs[VIRTUAL_SIZE/MY_PAGE_SIZE];
+static struct pcie_phymem_desc pcie_phymem_descs[PHY_SIZE/MY_PAGE_SIZE];
 
 int pcie_init_vmem(void)
 {
     int i;
-    for (i = 0; i < VIRTUAL_SIZE / PAGE_SIZE; i++) {
+    for (i = 0; i < VIRTUAL_SIZE / MY_PAGE_SIZE; i++) {
         pcie_vmem_descs[i].status = VPAGE_NO_MAP;
-        pcie_vmem_descs[i].swp = &swap_entries[i];
         pcie_vmem_descs[i].id = i;
         pcie_vmem_descs[i].phy_desc = NULL;
     }
@@ -19,13 +18,22 @@ int pcie_init_phymem(void)
 {
     int i;
     unsigned long pfn = RESERVED_PHYS_ADDR >> PAGE_SHIFT;
+    unsigned long pfn_temp = pfn;
+
     for (i = 0; i < PHY_SIZE / PAGE_SIZE; i++) {
-        struct page *page = pfn_to_page(pfn);
-        pcie_phymem_descs[i].pfn = pfn++;
-        pcie_phymem_descs[i].status = PPAGE_FREE;
-        pcie_phymem_descs[i].dirty = false;
+        struct page *page = pfn_to_page(pfn_temp);
         init_page_count(page);
         page_mapcount_reset(page);
+        ++pfn_temp;
+    }
+
+    pfn_temp = pfn;
+
+    for (i = 0; i < PHY_SIZE / MY_PAGE_SIZE; i++) {
+        pcie_phymem_descs[i].pfn = pfn_temp;
+        pcie_phymem_descs[i].status = PPAGE_FREE;
+        pcie_phymem_descs[i].dirty = false;
+        pfn_temp += MY_PAGE_SIZE / PAGE_SIZE;
     }
     return 0;
 }
@@ -59,7 +67,7 @@ static int fill_vpage(struct vm_area_struct *vma, struct pcie_vmem_desc *cur_des
     struct pcie_vmem_desc *vmem_desc = NULL;
     struct pcie_phymem_desc *phymem_desc = NULL;
 
-    for (i = 0; i < PHY_SIZE/PAGE_SIZE; i++) {
+    for (i = 0; i < PHY_SIZE/MY_PAGE_SIZE; i++) {
         if (pcie_phymem_descs[i].status == PPAGE_FREE) {
             phymem_desc = &pcie_phymem_descs[i];
             break;
@@ -76,7 +84,7 @@ static int fill_vpage(struct vm_area_struct *vma, struct pcie_vmem_desc *cur_des
         return 0;
     }
 
-    for (i = 0; i < VIRTUAL_SIZE/PAGE_SIZE; i++) {
+    for (i = 0; i < VIRTUAL_SIZE/MY_PAGE_SIZE; i++) {
         if (pcie_vmem_descs[i].status == VPAGE_IN_MEM) {
             if (!pcie_vmem_descs[i].phy_desc) {
                 BUG();
@@ -100,7 +108,7 @@ vm_fault_t pcieBase_fault(struct vm_fault *vmf)
 {
     struct vm_area_struct *vma = vmf->vma;
     unsigned long offset = vmf->address - vma->vm_start;
-    unsigned long vpage_idx = offset / PAGE_SIZE;
+    unsigned long vpage_idx = offset / MY_PAGE_SIZE;
     struct pcie_vmem_desc *vdesc = &pcie_vmem_descs[vpage_idx];
     int ret = 0;
     struct page *page;
@@ -118,6 +126,10 @@ vm_fault_t pcieBase_fault(struct vm_fault *vmf)
             BUG();
             return VM_FAULT_SIGBUS;
         } else {
+            remap_pfn_range(vma, vma->vm_start + vdesc->id * MY_PAGE_SIZE + PAGE_SIZE,
+                                 vdesc->phy_desc->pfn + 1, 
+                                 MY_PAGE_SIZE - PAGE_SIZE, 
+                                 vma->vm_page_prot);
             page = pfn_to_page(vdesc->phy_desc->pfn);
             get_page(page);
             vmf->page = page;

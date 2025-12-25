@@ -31,7 +31,7 @@
 #define PHY_SIZE_GB      1UL
 #define PHY_SIZE         (PHY_SIZE_GB << 30)
 
-#define SWAP_PAGE_COUNT  (SWAP_SIZE / PAGE_SIZE)
+#define MY_PAGE_SIZE     (4UL << 20)
 
 #define RESERVED_PHYS_ADDR  0x50000000
 
@@ -66,10 +66,8 @@ struct pcie_vmem_desc {
     unsigned long id;
 };
 
-extern swp_entry_t *swap_entries;
-
-int setup_swap_mapping(void);
-int cleanup_swap_mapping(void);
+int init_swap_device(void);
+void cleanup_swap_device(void);
 
 int pcie_init_vmem(void);
 int pcie_init_phymem(void);
