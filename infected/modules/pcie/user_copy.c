@@ -12,7 +12,7 @@ int main(int argc, char **argv)
 {
     int fd, src_fd, dst_fd;
     void *addr;
-    char buf[1024];
+    char buf[4096];
     size_t size = 0x80000000;
     size_t read_n, write_n;
     size_t total_size;
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     tmp = addr;
     total_size = 0;
 
-    while (read_n = read(src_fd, buf, 1024)) {
+    while (read_n = read(src_fd, buf, 4096)) {
         memcpy(tmp, buf, read_n);
         tmp += read_n;
         total_size += read_n;
