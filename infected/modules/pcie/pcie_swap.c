@@ -24,6 +24,7 @@ void pciebase_swapdev_clean(struct PCIeAdapter *pcie_adap)
     }
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0))
 static int my_swap_writepages(struct pcie_vmem_desc *desc)
 {
 	struct bio *bio;
@@ -92,6 +93,7 @@ static int my_swap_readpages(struct pcie_vmem_desc *desc)
 
 	return ret;
 }
+#endif
 
 static unsigned long read_pages(struct pcie_vmem_desc *swap_desc)
 {

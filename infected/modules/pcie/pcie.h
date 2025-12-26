@@ -12,6 +12,9 @@
 #include <linux/suspend.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+#include <linux/bio.h>
+#include <linux/blkdev.h>
+#include <linux/version.h>
 
 #define PCIE_CMD_INIT     _IO('P', 1)
 #define PCIE_CMD_RESET    _IO('P', 2)
@@ -30,7 +33,7 @@
 
 #define MY_PAGE_SIZE     (4UL << 20)
 
-#define RESERVED_PHYS_ADDR  0x200000000
+#define RESERVED_PHYS_ADDR  0x400000000
 
 struct PCIeAdapter {
     struct cdev cdev;

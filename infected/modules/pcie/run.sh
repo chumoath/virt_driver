@@ -41,3 +41,8 @@ addr2line -e  build.arm64/vmlinux FFFF8000104506F0
 
 # 2G - 4K
 dd if=test.img of=xx bs=4K count=524287
+
+sed -i 's@-fno-allow-store-data-races@@g' compile_commands.json
+sed -i 's@-femit-struct-debug-baseonly@@g' compile_commands.json
+sed -i 's@-fconserve-stack@@g' compile_commands.json
+sed -i 's@-mabi=lp64@@g' compile_commands.json
