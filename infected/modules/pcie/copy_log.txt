@@ -1,4 +1,25 @@
 -------------------------------------------------------------------------------------
+block call chain
+
+blk_mq_dispatch_rq_list
+virtio_queue_rq
+
+
+cqhci_request
+cqhci_prep_tran_desc
+cqhci_dma_map
+dma_map_sg
+dma_direct_map_sg
+dma_direct_map_page
+swiotlb_map
+swiotlb_tbl_map_single
+swiotlb_bounce
+	buffer = kmap_atomic(pfn_to_page(pfn));
+		page_address
+		lowmem_page_address？
+	memcpy(vaddr, buffer + offset, sz);
+
+-------------------------------------------------------------------------------------
 2G pcieBase全部用物理内存映射，virtual:phy = 1:1
 
 [  103.200989] vma_start = 0xffff235f0000, vma_end = 0xffffa35f0000, vm_pgoff=0x0

@@ -30,7 +30,7 @@
 
 #define MY_PAGE_SIZE     (4UL << 20)
 
-#define RESERVED_PHYS_ADDR  0x50000000
+#define RESERVED_PHYS_ADDR  0x200000000
 
 struct PCIeAdapter {
     struct cdev cdev;
