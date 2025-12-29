@@ -15,6 +15,7 @@
 #include <linux/bio.h>
 #include <linux/blkdev.h>
 #include <linux/version.h>
+#include <linux/proc_fs.h>
 
 #define PCIE_CMD_INIT     _IO('P', 1)
 #define PCIE_CMD_RESET    _IO('P', 2)
@@ -22,13 +23,13 @@
 
 #define PCIE_BASE_NAME    "pcieBase"
 
-#define VIRTUAL_SIZE_GB  2UL
+#define VIRTUAL_SIZE_GB  32UL
 #define VIRTUAL_SIZE     (VIRTUAL_SIZE_GB << 30)
 
-#define SWAP_SIZE_GB     2UL
+#define SWAP_SIZE_GB     32UL
 #define SWAP_SIZE        (SWAP_SIZE_GB << 30)
 
-#define PHY_SIZE_GB      1UL
+#define PHY_SIZE_GB      8UL
 #define PHY_SIZE         (PHY_SIZE_GB << 30)
 
 #define MY_PAGE_SIZE     (4UL << 20)
@@ -41,6 +42,9 @@ struct PCIeAdapter {
     dev_t major;
     struct block_device *swap_bdev;
     char *swap_device_path;
+    atomic_long_t total_write;
+    atomic_long_t total_read;
+    struct proc_dir_entry *base_dir;
 };
 
 enum {
@@ -59,6 +63,8 @@ struct pcie_phymem_desc {
     int status;
     unsigned long pfn;
     bool dirty;
+    atomic_long_t write_cnt;
+    atomic_long_t read_cnt;
 };
 
 struct pcie_vmem_desc {
@@ -73,8 +79,7 @@ extern struct PCIeAdapter g_pcie_adap;
 int pciebase_swapdev_init(struct PCIeAdapter *pcie_adap);
 void pciebase_swapdev_clean(struct PCIeAdapter *pcie_adap);
 
-int pcie_init_vmem(void);
-int pcie_init_phymem(void);
+int pcie_mm_reset(void);
 
 int get_vaddr_pte(struct vm_area_struct *vma, unsigned long vaddr);
 vm_fault_t pcieBase_fault(struct vm_fault *vmf);
@@ -84,3 +89,6 @@ void pciebase_cdev_clean(struct PCIeAdapter *pcie_adap);
 
 int evict_page(struct vm_area_struct *vma, struct pcie_vmem_desc *vmem_desc, struct pcie_vmem_desc *swap_desc);
 int my_swap_pagein(struct vm_area_struct *vma, struct pcie_vmem_desc *vmem_desc);
+
+int proc_pcie_init(struct PCIeAdapter *pcie_adap);
+int proc_pcie_clean(struct PCIeAdapter *pcie_adap);

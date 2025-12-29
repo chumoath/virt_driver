@@ -1,11 +1,12 @@
 ifneq ($(KERNELRELEASE),)
 	obj-m = pcie_drv.o
-	pcie_drv-objs := pcie_main.o pcie_cdev.o pcie_mm.o pcie_swap.o
+	pcie_drv-objs := pcie_main.o pcie_cdev.o pcie_mm.o pcie_swap.o pcie_proc.o
 	# ccflags-y += -DDEBUG
 	EXTRA_CFLAGS += -g -fverbose-asm
 else
 	MODULE_PATH := $(shell pwd)
-	KERNEL_PATH := '/root/linux-5.10.240/build.arm64'
+	#KERNEL_PATH := '/root/linux-5.10.240/build.arm64'
+	KERNEL_PATH := '/root/linux-6.1.159/build.arm64'
 	ARCH := arm64
 	CROSS_COMPILE := aarch64-linux-gnu-
 all:

@@ -3,7 +3,11 @@
 int pciebase_swapdev_init(struct PCIeAdapter *pcie_adap)
 {
     loff_t total_bytes;
+    #if !defined (RK3588)
     pcie_adap->swap_device_path = "/dev/vdb";
+    #else
+    pcie_adap->swap_device_path = "/dev/mmcblk0p8";
+    #endif
 	pcie_adap->swap_bdev = blkdev_get_by_path(pcie_adap->swap_device_path, FMODE_READ | FMODE_WRITE, NULL);
 	if (IS_ERR(pcie_adap->swap_bdev)) {
 		pr_warn("pNFS: failed to open device %s (%ld)\n",
@@ -93,12 +97,82 @@ static int my_swap_readpages(struct pcie_vmem_desc *desc)
 
 	return ret;
 }
+#else
+static int my_swap_writepages(struct pcie_vmem_desc *desc)
+{
+	struct bio *bio;
+	int ret = 0;
+    struct block_device *bdev = g_pcie_adap.swap_bdev;
+    sector_t sector;
+    int i;
+    unsigned long pfn = desc->phy_desc->pfn;
+
+    sector = (desc->id * MY_PAGE_SIZE) >> SECTOR_SHIFT;
+
+    bio = bio_kmalloc(MY_PAGE_SIZE/PAGE_SIZE, GFP_NOIO);
+	if (!bio)
+		return -ENOMEM;
+
+    bio_init(bio, bdev, bio->bi_inline_vecs, MY_PAGE_SIZE/PAGE_SIZE, REQ_OP_WRITE);
+	bio->bi_iter.bi_sector = sector;
+
+	for (i = 0; i < MY_PAGE_SIZE/PAGE_SIZE; ++i) {
+        struct page *page = pfn_to_page(pfn);
+        ++pfn;
+
+		if (!bio_add_page(bio, page, PAGE_SIZE, 0)) {
+			return -EIO;
+		}
+	}
+
+	ret = submit_bio_wait(bio);
+    bio_uninit(bio);
+    kfree(bio);
+
+    return ret;
+}
+
+static int my_swap_readpages(struct pcie_vmem_desc *desc)
+{
+	struct bio *bio;
+	int ret = 0;
+    struct block_device *bdev = g_pcie_adap.swap_bdev;
+    sector_t sector;
+    int i;
+    unsigned long pfn = desc->phy_desc->pfn;
+
+    sector = (desc->id * MY_PAGE_SIZE) >> SECTOR_SHIFT;
+
+    bio = bio_kmalloc(MY_PAGE_SIZE/PAGE_SIZE, GFP_NOIO);
+	if (!bio)
+		return -ENOMEM;
+
+    bio_init(bio, bdev, bio->bi_inline_vecs, MY_PAGE_SIZE/PAGE_SIZE, REQ_OP_READ);
+	bio->bi_iter.bi_sector = sector;
+
+	for (i = 0; i < MY_PAGE_SIZE/PAGE_SIZE; ++i) {
+        struct page *page = pfn_to_page(pfn);
+        ++pfn;
+
+		if (!bio_add_page(bio, page, PAGE_SIZE, 0)) {
+            bio_put(bio);
+			return -EIO;
+		}
+	}
+
+	ret = submit_bio_wait(bio);
+    bio_uninit(bio);
+    kfree(bio);
+
+    return ret;
+}
 #endif
 
 static unsigned long read_pages(struct pcie_vmem_desc *swap_desc)
 {
     my_swap_readpages(swap_desc);
-    swap_desc->status = VPAGE_IN_MEM;
+    atomic_long_inc(&swap_desc->phy_desc->read_cnt);
+    atomic_long_inc(&g_pcie_adap.total_read);
 
     return 0;
 }
@@ -108,6 +182,8 @@ static unsigned long write_pages(struct pcie_vmem_desc *swap_desc)
     my_swap_writepages(swap_desc);
     swap_desc->status = VPAGE_IN_SWAP;
 
+    atomic_long_inc(&swap_desc->phy_desc->write_cnt);
+    atomic_long_inc(&g_pcie_adap.total_write);
     return 0;
 }
 
@@ -122,7 +198,12 @@ int evict_page(struct vm_area_struct *vma, struct pcie_vmem_desc *vmem_desc, str
     swap_desc->phy_desc = vmem_desc->phy_desc;
     vmem_desc->phy_desc = NULL;
 
-    read_pages(swap_desc);
+    // only read if block in swap
+    if (swap_desc->status == VPAGE_IN_SWAP) {
+        read_pages(swap_desc);
+    }
+    swap_desc->status = VPAGE_IN_MEM;
+    
     unlock_page(page);
 
     // put_page(page);

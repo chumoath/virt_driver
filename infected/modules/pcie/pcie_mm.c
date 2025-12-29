@@ -34,7 +34,20 @@ int pcie_init_phymem(void)
         pcie_phymem_descs[i].status = PPAGE_FREE;
         pcie_phymem_descs[i].dirty = false;
         pfn_temp += MY_PAGE_SIZE / PAGE_SIZE;
+        atomic_long_set(&pcie_phymem_descs->read_cnt, 0);
+        atomic_long_set(&pcie_phymem_descs->write_cnt, 0);
     }
+    return 0;
+}
+
+int pcie_mm_reset(void)
+{
+    pcie_init_vmem();
+    pcie_init_phymem();
+
+    atomic_long_set(&g_pcie_adap.total_read, 0);
+    atomic_long_set(&g_pcie_adap.total_write, 0);
+
     return 0;
 }
 
@@ -126,10 +139,13 @@ vm_fault_t pcieBase_fault(struct vm_fault *vmf)
             BUG();
             return VM_FAULT_SIGBUS;
         } else {
-            remap_pfn_range(vma, vma->vm_start + vdesc->id * MY_PAGE_SIZE + PAGE_SIZE,
-                                 vdesc->phy_desc->pfn + 1, 
-                                 MY_PAGE_SIZE - PAGE_SIZE, 
-                                 vma->vm_page_prot);
+            if (MY_PAGE_SIZE != PAGE_SIZE) {
+                remap_pfn_range(vma, vma->vm_start + vdesc->id * MY_PAGE_SIZE + PAGE_SIZE,
+                                    vdesc->phy_desc->pfn + 1, 
+                                    MY_PAGE_SIZE - PAGE_SIZE, 
+                                    vma->vm_page_prot);
+            }
+
             page = pfn_to_page(vdesc->phy_desc->pfn);
             get_page(page);
             vmf->page = page;

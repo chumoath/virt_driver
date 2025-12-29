@@ -16,6 +16,7 @@ static long pcieBase_ioctl(struct file *pfile, unsigned int cmd, unsigned long a
     unsigned long vaddr;
     switch (cmd) {
         case PCIE_CMD_RESET:
+            pcie_mm_reset();
             break;
         case PCIE_CMD_GET_PTE:
             vaddr = arg;
